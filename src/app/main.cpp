@@ -30,7 +30,6 @@
 #include "qgslogger.h"
 #include <qmainwindow.h>
 #include <QApplication>
-#include <QDebug>
 
 int main( int argc, char **argv )
 {
@@ -71,7 +70,7 @@ int main( int argc, char **argv )
   // Set up the QSettings environment must be done after qapp is created
   QCoreApplication::setOrganizationName( "OPENGIS.ch" );
   QCoreApplication::setOrganizationDomain( "opengis.ch" );
-  QCoreApplication::setApplicationName( "QField" );
+  QCoreApplication::setApplicationName( APP_NAME );
 
   QTranslator qfieldTranslator;
   QTranslator qtTranslator;
@@ -79,11 +78,6 @@ int main( int argc, char **argv )
   qtTranslator.load( QLocale(), "qt", "_", ":/" );
   app.installTranslator( &qtTranslator );
   app.installTranslator( &qfieldTranslator );
-
-  // QGIS environment variables to set
-  // OGR_SQLITE_JOURNAL is set to DELETE to avoid working with WAL files
-  // since QField does not make a proper close of connection where the data are written from WAL to GPKG
-  setenv( "OGR_SQLITE_JOURNAL", "DELETE", 1 );
 
   QgisMobileapp mApp( &app );
   return app.exec();

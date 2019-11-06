@@ -18,6 +18,9 @@
 #include "attributeformmodel.h"
 #include <qgsvectorlayer.h>
 #include <qgseditorwidgetsetup.h>
+#include <qgsproject.h>
+#include <qgsrelationmanager.h>
+#include <qgsdatetimefieldformatter.h>
 
 AttributeFormModelBase::AttributeFormModelBase( QObject *parent )
   : QStandardItemModel( 0, 1, parent )
@@ -44,6 +47,8 @@ QHash<int, QByteArray> AttributeFormModelBase::roleNames() const
   roles[AttributeFormModel::EditorWidgetConfig] = "EditorWidgetConfig";
   roles[AttributeFormModel::RememberValue] = "RememberValue";
   roles[AttributeFormModel::Field] = "Field";
+  roles[AttributeFormModel::RelationId] = "RelationId";
+  roles[AttributeFormModel::NmRelationId] = "NmRelationId";
   roles[AttributeFormModel::Group] = "Group";
   roles[AttributeFormModel::ConstraintValid] = "ConstraintValid";
   roles[AttributeFormModel::ConstraintDescription] = "ConstraintDescription";
@@ -53,7 +58,7 @@ QHash<int, QByteArray> AttributeFormModelBase::roleNames() const
 
 bool AttributeFormModelBase::setData( const QModelIndex &index, const QVariant &value, int role )
 {
-  if ( data( index, role ) != value )
+  if ( !qgsVariantEqual( data( index, role ), value ) )
   {
     switch ( role )
     {
@@ -78,7 +83,6 @@ bool AttributeFormModelBase::setData( const QModelIndex &index, const QVariant &
         }
         updateVisibility( fieldIndex );
         return changed;
-        break;
       }
     }
   }
@@ -144,7 +148,8 @@ void AttributeFormModelBase::onLayerChanged()
     invisibleRootItem()->setColumnCount( 1 );
     if ( mHasTabs )
     {
-      Q_FOREACH ( QgsAttributeEditorElement *element, root->children() )
+      const QList<QgsAttributeEditorElement *> children { root->children() };
+      for ( QgsAttributeEditorElement *element : children )
       {
         if ( element->type() == QgsAttributeEditorElement::AeTypeContainer )
         {
@@ -189,6 +194,7 @@ void AttributeFormModelBase::onFeatureChanged()
 QgsAttributeEditorContainer *AttributeFormModelBase::generateRootContainer() const
 {
   QgsAttributeEditorContainer *root = new QgsAttributeEditorContainer( QString(), nullptr );
+  //get fields
   QgsFields fields = mLayer->fields();
   for ( int i = 0; i < fields.size(); ++i )
   {
@@ -197,6 +203,13 @@ QgsAttributeEditorContainer *AttributeFormModelBase::generateRootContainer() con
       QgsAttributeEditorField *field = new QgsAttributeEditorField( fields.at( i ).name(), i, root );
       root->addChildElement( field );
     }
+  }
+  //get relations
+  const QList<QgsRelation> referencingRelations = QgsProject::instance()->relationManager()->referencedRelations( mLayer );
+  for ( const QgsRelation &referencingRelation : referencingRelations )
+  {
+    QgsAttributeEditorRelation *relation = new QgsAttributeEditorRelation( referencingRelation, root );
+    root->addChildElement( relation );
   }
   return root;
 }
@@ -208,11 +221,13 @@ QgsAttributeEditorContainer *AttributeFormModelBase::invisibleRootContainer() co
 
 void AttributeFormModelBase::updateAttributeValue( QStandardItem *item )
 {
-  if ( item->data( AttributeFormModel::ElementType ) == "field" )
+  if ( item->data( AttributeFormModel::ElementType ) == QStringLiteral( "field" ) )
   {
     int fieldIndex = item->data( AttributeFormModel::FieldIndex ).toInt();
     QVariant attributeValue = mFeatureModel->feature().attribute( fieldIndex );
     item->setData( attributeValue, AttributeFormModel::AttributeValue );
+    //set item visibility to false in case it's a linked attribute
+    item->setData( !mFeatureModel->data( mFeatureModel->index( fieldIndex ), FeatureModel::LinkedAttribute ).toBool(), AttributeFormModel::CurrentlyVisible );
   }
   else
   {
@@ -225,7 +240,8 @@ void AttributeFormModelBase::updateAttributeValue( QStandardItem *item )
 
 void AttributeFormModelBase::flatten( QgsAttributeEditorContainer *container, QStandardItem *parent, const QString &parentVisibilityExpressions, QVector<QStandardItem *> &items )
 {
-  Q_FOREACH ( QgsAttributeEditorElement *element, container->children() )
+  const QList<QgsAttributeEditorElement *> children { container->children() };
+  for ( QgsAttributeEditorElement *element : children )
   {
     switch ( element->type() )
     {
@@ -261,7 +277,7 @@ void AttributeFormModelBase::flatten( QgsAttributeEditorContainer *container, QS
 
         item->setData( mLayer->attributeDisplayName( fieldIndex ), AttributeFormModel::Name );
         item->setData( !mLayer->editFormConfig().readOnly( fieldIndex ), AttributeFormModel::AttributeEditable );
-        QgsEditorWidgetSetup setup = mLayer->editorWidgetSetup( fieldIndex );
+        const QgsEditorWidgetSetup setup = findBest( fieldIndex );
         item->setData( setup.type(), AttributeFormModel::EditorWidget );
         item->setData( setup.config(), AttributeFormModel::EditorWidgetConfig );
         item->setData( mFeatureModel->rememberedAttributes().at( fieldIndex ) ? Qt::Checked : Qt::Unchecked, AttributeFormModel::RememberValue );
@@ -287,8 +303,29 @@ void AttributeFormModelBase::flatten( QgsAttributeEditorContainer *container, QS
       }
 
       case QgsAttributeEditorElement::AeTypeRelation:
-        // todo
+      {
+        QgsAttributeEditorRelation *editorRelation = static_cast<QgsAttributeEditorRelation *>( element );
+        QgsRelation relation = editorRelation->relation();
+
+        QStandardItem *item = new QStandardItem();
+
+
+        item->setData( relation.name(), AttributeFormModel::Name );
+        item->setData( true, AttributeFormModel::AttributeEditable );
+        item->setData( true, AttributeFormModel::CurrentlyVisible );
+        item->setData( "relation", AttributeFormModel::ElementType );
+        item->setData( "RelationEditor", AttributeFormModel::EditorWidget );
+        item->setData( relation.id(), AttributeFormModel::RelationId );
+        item->setData( mLayer->editFormConfig().widgetConfig( relation.id() )[ QStringLiteral( "nm-rel" ) ].toString(), AttributeFormModel::NmRelationId );
+        item->setData( container->isGroupBox() ? container->name() : QString(), AttributeFormModel::Group );
+        item->setData( true, AttributeFormModel::CurrentlyVisible );
+        item->setData( true, AttributeFormModel::ConstraintValid );
+
+        items.append( item );
+
+        parent->appendRow( item );
         break;
+      }
 
       case QgsAttributeEditorElement::AeTypeInvalid:
         // todo
@@ -307,7 +344,7 @@ void AttributeFormModelBase::updateVisibility( int fieldIndex )
   mExpressionContext.setFields( fields );
   mExpressionContext.setFeature( mFeatureModel->feature() );
 
-  Q_FOREACH ( const VisibilityExpression &it, mVisibilityExpressions )
+  for ( const VisibilityExpression &it : qgis::as_const( mVisibilityExpressions ) )
   {
     if ( fieldIndex == -1 || it.first.referencedAttributeIndexes( fields ).contains( fieldIndex ) )
     {
@@ -315,7 +352,7 @@ void AttributeFormModelBase::updateVisibility( int fieldIndex )
       exp.prepare( &mExpressionContext );
 
       bool visible = exp.evaluate( &mExpressionContext ).toInt();
-      Q_FOREACH ( QStandardItem *item, it.second )
+      for ( QStandardItem *item : qgis::as_const( it.second ) )
       {
         if ( item->data( AttributeFormModel::CurrentlyVisible ).toBool() != visible )
         {
@@ -371,6 +408,54 @@ void AttributeFormModelBase::setConstraintsValid( bool constraintsValid )
   emit constraintsValidChanged();
 }
 
+QgsEditorWidgetSetup AttributeFormModelBase::findBest( const int index )
+{
+  QgsFields fields = mLayer->fields();
+
+  //make the default one
+  QgsEditorWidgetSetup setup = QgsEditorWidgetSetup( QStringLiteral( "TextEdit" ), QVariantMap() );
+
+  if ( index >= 0 && index < fields.count() )
+  {
+    //when field has a configured setup, take it
+    setup = mLayer->editorWidgetSetup( index );
+    if ( !setup.isNull() )
+      return setup;
+
+    //when it's a provider field with default value clause, take Textedit
+    if ( fields.fieldOrigin( index ) == QgsFields::OriginProvider )
+    {
+      int providerOrigin = fields.fieldOriginIndex( index );
+      if ( !mLayer->dataProvider()->defaultValueClause( providerOrigin ).isEmpty() )
+        return setup;
+    }
+
+    //find the best one
+    const QgsField field = fields.at( index );
+    //on a boolean type take "CheckBox"
+    if ( field.type() == QVariant::Bool )
+      setup = QgsEditorWidgetSetup( QStringLiteral( "CheckBox" ), QVariantMap() );
+    //on a date or time type take "DateTime"
+    if ( field.isDateOrTime() )
+    {
+      QVariantMap config;
+      config.insert( QStringLiteral( "field_format" ), QgsDateTimeFieldFormatter::defaultFormat( field.type() ) );
+      config.insert( QStringLiteral( "display_format" ), QgsDateTimeFieldFormatter::defaultFormat( field.type() ) );
+      config.insert( QStringLiteral( "calendar_popup" ), true );
+      config.insert( QStringLiteral( "allow_null" ), true );
+      setup = QgsEditorWidgetSetup( QStringLiteral( "DateTime" ), config );
+    }
+    //on numeric types take "Range"
+    if ( field.type() == QVariant::Int || field.type() == QVariant::Double || field.isNumeric() )
+      setup = QgsEditorWidgetSetup( QStringLiteral( "Range" ), QVariantMap() );
+    //if it's a foreign key configured in a relation take "RelationReference"
+    if ( !mLayer->referencingRelations( index ).isEmpty() )
+      setup = QgsEditorWidgetSetup( QStringLiteral( "RelationReference" ), QVariantMap() );
+  }
+
+  return setup;
+}
+
 bool AttributeFormModelBase::hasTabs() const
 {
   return mHasTabs;
@@ -393,4 +478,9 @@ void AttributeFormModelBase::save()
 void AttributeFormModelBase::create()
 {
   mFeatureModel->create();
+}
+
+void AttributeFormModelBase::deleteFeature()
+{
+  mFeatureModel->deleteFeature();
 }

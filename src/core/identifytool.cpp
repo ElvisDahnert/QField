@@ -47,6 +47,9 @@ void IdentifyTool::setMapSettings( QgsQuickMapSettings *mapSettings )
 
 void IdentifyTool::identify( const QPointF &point ) const
 {
+  if ( mDeactivated )
+    return;
+
   if ( !mModel || !mMapSettings )
   {
     qWarning() << "Unable to use IdentifyTool without mapSettings or model property set.";
@@ -57,8 +60,8 @@ void IdentifyTool::identify( const QPointF &point ) const
 
   QgsPointXY mapPoint = mMapSettings->mapSettings().mapToPixel().toMapCoordinates( point.toPoint() );
 
-
-  Q_FOREACH ( QgsMapLayer *layer, mMapSettings->mapSettings().layers() )
+  const QList<QgsMapLayer *> layers { mMapSettings->mapSettings().layers() };
+  for ( QgsMapLayer *layer : layers )
   {
     if ( !layer->flags().testFlag( QgsMapLayer::Identifiable ) )
       continue;
@@ -128,7 +131,7 @@ QList<IdentifyTool::IdentifyResult> IdentifyTool::identifyVectorLayer( QgsVector
     filter = renderer->capabilities() & QgsFeatureRenderer::Filter;
   }
 
-  Q_FOREACH ( const QgsFeature &feature, featureList )
+  for ( const QgsFeature &feature : qgis::as_const( featureList ) )
   {
     context.expressionContext().setFeature( feature );
 
@@ -158,6 +161,13 @@ void IdentifyTool::setModel( MultiFeatureListModel *model )
 
   mModel = model;
   emit modelChanged();
+}
+
+void IdentifyTool::setDeactivated( bool deactivated )
+{
+  if ( deactivated )
+    mModel->clear();
+  mDeactivated = deactivated;
 }
 
 double IdentifyTool::searchRadiusMU( const QgsRenderContext &context ) const

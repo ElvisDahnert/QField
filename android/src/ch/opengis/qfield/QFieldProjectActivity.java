@@ -105,6 +105,15 @@ public class QFieldProjectActivity extends Activity {
             }
 
             String favoriteDirs = sharedPreferences.getString("FavoriteDirs", null);
+
+            // The first time, add the demo projects directory to the favorites
+            boolean addDemoProjectsFavoriteDir = sharedPreferences.getBoolean("AddDemoProjectsFavoriteDir", true);
+            if (addDemoProjectsFavoriteDir){
+                favoriteDirs = getFilesDir().toString() + "/resources/demo_projects";
+                editor.putString("FavoriteDirs", favoriteDirs);
+                editor.putBoolean("AddDemoProjectsFavoriteDir", false);
+                editor.commit();
+            }
             if (favoriteDirs != null){
                 String[] favoriteDirsArray = favoriteDirs.split("--;--");
                 values.add(new QFieldProjectListItem(null, getString(R.string.favorite_directories), 0, QFieldProjectListItem.TYPE_SEPARATOR));
@@ -131,7 +140,7 @@ public class QFieldProjectActivity extends Activity {
                 for (File file : list) {
                     if (file.getName().startsWith(".")) {
                         continue;
-                    }else if (file.getName().toLowerCase().endsWith(".qgs")){
+                    }else if (file.getName().toLowerCase().endsWith(".qgs") || file.getName().toLowerCase().endsWith(".qgz")){
                         values.add(new QFieldProjectListItem(file, file.getName(), R.drawable.icon, QFieldProjectListItem.TYPE_ITEM));
                     }else if (file.isDirectory()){
                         values.add(new QFieldProjectListItem(file, file.getName(), R.drawable.directory, QFieldProjectListItem.TYPE_ITEM));

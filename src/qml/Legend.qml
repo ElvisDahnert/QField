@@ -8,7 +8,7 @@ import org.qfield 1.0
 import QtQml.Models 2.2
 import QtQuick.Controls.Styles 1.4
 
-import "js/style.js" as Style
+import Theme 1.0
 
 TreeView {
   id: listView
@@ -24,7 +24,7 @@ TreeView {
             color: styleData.row !== undefined && layerTree.data(listView.__model.mapRowToModelIndex(styleData.row), LayerTreeModel.VectorLayer) === currentLayer && currentLayer != null ? "#999" : "#fff"
             Image {
               anchors.fill: parent
-              source:  styleData.isExpanded ? Style.getThemeIcon("ic_arrow_drop_down_black_24dp") : Style.getThemeIcon("ic_arrow_right_black_24dp")
+              source:  styleData.isExpanded ? Theme.getThemeIcon("ic_arrow_drop_down_black_24dp") : Theme.getThemeIcon("ic_arrow_right_black_24dp")
             }
         }
     }
@@ -50,7 +50,13 @@ TreeView {
     //small hack: since the image of a root item should be aligned to the expand triangles of branches, it needs to be printed here
     Image {
       visible: styleData.row !== undefined && layerTree.data(listView.__model.mapRowToModelIndex(styleData.row), LayerTreeModel.Type) === 'layer'
-      source: "image://legend/" + layerTree.data(listView.__model.mapRowToModelIndex(styleData.row), LayerTreeModel.LegendImage)
+      source: {
+          var legendNode = layerTree.data(listView.__model.mapRowToModelIndex(styleData.row), LayerTreeModel.LegendImage)
+          if ( legendNode )
+            return "image://legend/" + legendNode
+          else
+            return unknown
+      }
       width: delegatedItem.height
       height: delegatedItem.height
       x: ( 24 * dp - width )/2

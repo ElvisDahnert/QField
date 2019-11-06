@@ -21,12 +21,7 @@ Item {
    */
   property variant overrideLocation: undefined // QgsPoint
 
-  readonly property variant currentCoordinate: {
-    if ( !!overrideLocation )
-      return overrideLocation
-    else
-      return snappingUtils.snappedCoordinate
-  }
+  readonly property variant currentCoordinate: !!overrideLocation ? overrideLocation : snappingUtils.snappedCoordinate
 
   // some trickery here: the first part (!mapSettings.visibleExtent) is only there to get a signal when
   // the map canvas extent changes (user pans/zooms) and the calculation of the display position is retriggered
@@ -34,6 +29,7 @@ Item {
 
   readonly property alias snappedCoordinate: snappingUtils.snappedCoordinate // In map coordinates, derived from snappinResult
   readonly property alias snappedPoint: snappingUtils.snappedPoint // In screen coordinates, derived from snappinResult
+  readonly property alias topSnappingResult: snappingUtils.snappingResult // The snappingResult itself, only one (compared to QGIS where it's usually a list)
 
   SnappingUtils {
     id: snappingUtils
@@ -119,19 +115,37 @@ Item {
     Rectangle {
       anchors.centerIn: parent
 
-      color: parent.border.color
+      color: parent.higlightColor
 
-      width: 1.2 * dp
-      height: parent.height * 4 / 6
+      width: 3
+      height: parent.height * 4 / 6 + 3
+    }
+    Rectangle {
+      anchors.centerIn: parent
+
+      color: parent.higlightColor
+
+      width: parent.width * 4 / 6 + 3
+      height: 3
     }
 
     Rectangle {
       anchors.centerIn: parent
 
       color: parent.border.color
+      border.color: parent.color
+      border.width: 1.2 * dp
+
+      width: 1
+      height: parent.height * 4 / 6
+    }
+    Rectangle {
+      anchors.centerIn: parent
+
+      color: parent.border.color
 
       width: parent.width * 4 / 6
-      height: 1.2 * dp
+      height: 1
     }
   }
 

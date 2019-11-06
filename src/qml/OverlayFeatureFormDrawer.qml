@@ -8,8 +8,23 @@ Drawer {
   property alias featureModel: overlayFeatureForm.featureModel
   property alias state: overlayFeatureForm.state
   property alias featureForm: overlayFeatureForm
-  height: parent.height
-  edge: Qt.RightEdge
+
+  edge: parent.width < parent.height ? Qt.BottomEdge : Qt.RightEdge
+  width: {
+      if (qfieldSettings.fullScreenIdentifyView || parent.width < parent.height || parent.width < 300 * dp) {
+          parent.width
+      } else {
+          Math.min(Math.max( 200 * dp, parent.width / 3), parent.width)
+      }
+  }
+  height: {
+     if (qfieldSettings.fullScreenIdentifyView || parent.width > parent.height) {
+         parent.height
+     } else {
+         Math.min(Math.max( 200 * dp, parent.height / 2 ), parent.height)
+     }
+  }
+
   interactive: overlayFeatureForm.model.constraintsValid
   dragMargin: 0
   Keys.enabled: true
@@ -41,6 +56,7 @@ Drawer {
     model: AttributeFormModel {id: attributeFormModel}
 
     state: "Add"
+    buffered: false
 
     focus: parent.opened
 

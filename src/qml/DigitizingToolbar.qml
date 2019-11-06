@@ -1,11 +1,11 @@
 import QtQuick 2.6
 import org.qgis 1.0
-import "js/style.js" as Style
+import Theme 1.0
 
 VisibilityFadingRow {
   id: digitizingToolbar
   property RubberbandModel rubberbandModel
-  property bool isDigitizing: rubberbandModel.vertexCount > 1 //!< Readonly
+  property bool isDigitizing: rubberbandModel ? rubberbandModel.vertexCount > 1 : false //!< Readonly
 
   spacing: 4 * dp
   padding: 4 * dp
@@ -16,23 +16,11 @@ VisibilityFadingRow {
   signal confirm
 
   Button {
-    id: removeVertexButton
-    iconSource: Style.getThemeIcon( "ic_remove_white_24dp" )
-    visible: rubberbandModel.vertexCount > 1
-    round: true
-    bgcolor: "#616161"
-
-    onClicked: {
-      vertexRemoved()
-    }
-  }
-
-  Button {
     id: cancelButton
-    iconSource: Style.getThemeIcon( "ic_clear_white_24dp" )
+    iconSource: Theme.getThemeIcon( "ic_clear_white_24dp" )
     visible: rubberbandModel.vertexCount > 1
     round: true
-    bgcolor: "#616161"
+    bgcolor: "#900000"
 
     onClicked: {
       cancel()
@@ -42,10 +30,10 @@ VisibilityFadingRow {
   Button {
     id: confirmButton
     iconSource: {
-      Style.getThemeIcon( "ic_save_white_24dp" )
+      Theme.getThemeIcon( "ic_save_white_24dp" )
     }
     visible: {
-      if ( Number( rubberbandModel.geometryType ) === 0 )
+      if ( Number( rubberbandModel ? rubberbandModel.geometryType : 0 ) === 0 || stateMachine.state === 'measure' )
       {
         false
       }
@@ -61,7 +49,7 @@ VisibilityFadingRow {
       }
     }
     round: true
-    bgcolor: "#FFD600"
+    bgcolor: Theme.mainColor
 
     onClicked: {
       // remove editing vertex for lines and polygons
@@ -71,12 +59,24 @@ VisibilityFadingRow {
   }
 
   Button {
+    id: removeVertexButton
+    iconSource: Theme.getThemeIcon( "ic_remove_white_24dp" )
+    visible: rubberbandModel.vertexCount > 1
+    round: true
+    bgcolor: Theme.darkGray
+
+    onClicked: {
+      vertexRemoved()
+    }
+  }
+
+  Button {
     id: addVertexButton
     iconSource: {
-        Style.getThemeIcon( "ic_add_white_24dp" )
+        Theme.getThemeIcon( "ic_add_white_24dp" )
     }
     round: true
-    bgcolor: Number( rubberbandModel.geometryType ) === QgsWkbTypes.PointGeometry ? "#FFD600" : "#2E7D32"
+    bgcolor: stateMachine.state === 'measure' ? Theme.darkGray : Number( rubberbandModel ? rubberbandModel.geometryType : 0 ) === QgsWkbTypes.PointGeometry ? Theme.mainColor : Theme.darkGray
 
     onClicked: {
       if ( Number( rubberbandModel.geometryType ) === QgsWkbTypes.PointGeometry ||

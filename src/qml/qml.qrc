@@ -24,7 +24,7 @@
         <file>editorwidgets/TextEdit.qml</file>
         <file>editorwidgets/ValueMap.qml</file>
         <file>editorwidgets/RelationReference.qml</file>
-        <file>js/style.js</file>
+        <file>editorwidgets/RelationEditor.qml</file>
         <file>qgismobileapp.qml</file>
         <file>Legend.qml</file>
         <file>TreeView.qml</file>
@@ -41,5 +41,11 @@
         <file>GeometryRenderer.qml</file>
         <file>GeometryHighlighter.qml</file>
         <file>FeatureListSelectionHighlight.qml</file>
+        <file>editorwidgets/ValueRelation.qml</file>
+        <file>RelationCombobox.qml</file>
+        <file>Changelog.qml</file>
+        <file>LayerLoginDialog.qml</file>
+        <file>imports/Theme/Theme.qml</file>
+        <file>imports/Theme/qmldir</file>
     </qresource>
 </RCC>

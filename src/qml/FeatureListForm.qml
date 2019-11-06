@@ -1,5 +1,5 @@
 /***************************************************************************
-                            FeatureForm.qml
+                            FeatureListForm.qml
                               -------------------
               begin                : 10.12.2014
               copyright            : (C) 2014 by Matthias Kuhn
@@ -21,7 +21,7 @@ import QtQuick.Layouts 1.1
 import QtQuick.Dialogs 1.2
 import org.qgis 1.0
 import org.qfield 1.0
-import "js/style.js" as Style
+import Theme 1.0
 
 Rectangle {
   id: featureForm
@@ -36,8 +36,24 @@ Rectangle {
   signal showMessage(string message)
   signal editGeometry
 
-  width: props.isVisible ? qfieldSettings.fullScreenIdentifyView || parent.width<300*dp ? parent.width : Math.min(Math.max(200*dp, parent.width/3), parent.width) : 0
-
+  width: {
+      if (props.isVisible) {
+          if (qfieldSettings.fullScreenIdentifyView || parent.width < parent.height || parent.width < 300 * dp) {
+              parent.width
+          } else {
+              Math.min(Math.max( 200 * dp, parent.width / 3), parent.width)
+          }
+      } else { 0 }
+  }
+  height: {
+     if (props.isVisible) {
+         if (qfieldSettings.fullScreenIdentifyView || parent.width > parent.height) {
+             parent.height
+         } else {
+             Math.min(Math.max( 200 * dp, parent.height / 2 ), parent.height)
+         }
+     } else { 0 }
+  }
 
   states: [
     State {
@@ -122,7 +138,7 @@ Rectangle {
     anchors.top: featureListToolBar.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    height: parent.height - featureListToolBar.height
+    anchors.bottom: parent.bottom
 
     property bool shown: false
 
@@ -199,7 +215,7 @@ Rectangle {
 
           visible: deleteFeatureCapability && allowEdit
 
-          iconSource: Style.getThemeIcon( "ic_delete_forever_white_24dp" )
+          iconSource: Theme.getThemeIcon( "ic_delete_forever_white_24dp" )
 
           onClicked: {
             deleteDialog.currentLayer = currentLayer
@@ -327,6 +343,21 @@ Rectangle {
 
   Behavior on width {
     PropertyAnimation {
+      duration: parent.width > parent.height ? 250 : 0
+      easing.type: Easing.InQuart
+
+      onRunningChanged: {
+        if ( running )
+          mapCanvasMap.freeze('formresize')
+        else
+          mapCanvasMap.unfreeze('formresize')
+      }
+    }
+  }
+
+  Behavior on height {
+    PropertyAnimation {
+      duration: parent.width < parent.height ? 250 : 0
       easing.type: Easing.InQuart
 
       onRunningChanged: {
@@ -387,6 +418,23 @@ Rectangle {
     }
     onRejected: {
       visible = false
+    }
+  }
+
+  //if project changed we should hide drawer in case it's still open with old values
+  //it pedals back, "simulates" a cancel without touching anything, but does not reset the model
+  Connections {
+    target: qgisProject
+
+    onLayersWillBeRemoved: {
+        if( state != "FeatureList" ) {
+          if( featureListToolBar.state === "Edit"){
+              featureForm.state = "FeatureForm"
+              displayToast( qsTr( "Changes discarded" ) )
+          }
+          state = "FeatureList"
+        }
+        state = "Hidden"
     }
   }
 }

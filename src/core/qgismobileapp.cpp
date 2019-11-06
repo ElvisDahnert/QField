@@ -19,6 +19,7 @@
 
 #include <unistd.h>
 
+#include <QStandardPaths>
 #include <QtQml/QQmlEngine>
 #include <QtQml/QQmlContext>
 #include <QtQml/QQmlApplicationEngine>
@@ -46,7 +47,6 @@
 #include <qgslocatormodel.h>
 #include <qgsfield.h>
 #include <qgsfieldconstraints.h>
-
 #include "qgsquickmapsettings.h"
 #include "qgsquickmapcanvasmap.h"
 #include "qgsquickcoordinatetransformer.h"
@@ -85,7 +85,13 @@
 #include "qgsgeometrywrapper.h"
 #include "linepolygonhighlight.h"
 #include "valuemapmodel.h"
+#include "referencingfeaturelistmodel.h"
+#include "featurechecklistmodel.h"
 
+// Check QGIS Version
+#if VERSION_INT >= 30600
+#include "qgsnetworkaccessmanager.h"
+#endif
 
 QgisMobileapp::QgisMobileapp( QgsApplication *app, QObject *parent )
   : QQmlApplicationEngine( parent )
@@ -99,7 +105,18 @@ QgisMobileapp::QgisMobileapp( QgsApplication *app, QObject *parent )
   create();
 #endif
 
+
+// Check QGIS Version
+#if VERSION_INT >= 30600
+  //set the authHandler to qfield-handler
+  std::unique_ptr<QgsNetworkAuthenticationHandler> handler;
+  mAuthRequestHandler = new QFieldAppAuthRequestHandler();
+  handler.reset( mAuthRequestHandler );
+  QgsNetworkAccessManager::instance()->setAuthHandler( std::move( handler ) );
+#endif
+
   mProject = QgsProject::instance();
+  mGpkgFlusher = qgis::make_unique<QgsGpkgFlusher>( mProject );
   mLayerTree = new LayerTreeModel( mProject->layerTreeRoot(), mProject, this );
   mLegendImageProvider = new LegendImageProvider( mLayerTree->layerTreeModel() );
 
@@ -128,6 +145,8 @@ QgisMobileapp::QgisMobileapp( QgsApplication *app, QObject *parent )
 
 void QgisMobileapp::initDeclarative()
 {
+  addImportPath( QStringLiteral( "qrc:/qml/imports" ) );
+
   // Register QGIS QML types
   qmlRegisterType<QgsSnappingUtils>( "org.qgis", 1, 0, "SnappingUtils" );
   qmlRegisterType<QgsMapLayerProxyModel>( "org.qgis", 1, 0, "MapLayerModel" );
@@ -157,6 +176,7 @@ void QgisMobileapp::initDeclarative()
   qmlRegisterUncreatableType<QgsUnitTypes>( "org.qgis", 1, 0, "QgsUnitTypes", "" );
   qmlRegisterUncreatableType<QgsRelationManager>( "org.qgis", 1, 0, "RelationManager", "The relation manager is available from the QgsProject. Try `qgisProject.relationManager`" );
   qmlRegisterUncreatableType<QgsWkbTypes>( "org.qgis", 1, 0, "QgsWkbTypes", "" );
+  qmlRegisterUncreatableType<QgsMapLayer>( "org.qgis", 1, 0, "MapLayer", "" );
 
   // Register QgsQuick QML types
   qmlRegisterType<QgsQuickMapCanvasMap>( "org.qgis", 1, 0, "MapCanvasMap" );
@@ -194,6 +214,8 @@ void QgisMobileapp::initDeclarative()
   qmlRegisterType<LinePolygonHighlight>( "org.qfield", 1, 0, "LinePolygonHighlight" );
   qmlRegisterType<QgsGeometryWrapper>( "org.qfield", 1, 0, "QgsGeometryWrapper" );
   qmlRegisterType<ValueMapModel>( "org.qfield", 1, 0, "ValueMapModel" );
+  qmlRegisterType<ReferencingFeatureListModel>( "org.qgis", 1, 0, "ReferencingFeatureListModel" );
+  qmlRegisterType<FeatureCheckListModel>( "org.qgis", 1, 0, "FeatureCheckListModel" );
 
   qmlRegisterUncreatableType<AppInterface>( "org.qgis", 1, 0, "QgisInterface", "QgisInterface is only provided by the environment and cannot be created ad-hoc" );
   qmlRegisterUncreatableType<Settings>( "org.qgis", 1, 0, "Settings", "" );
@@ -220,6 +242,10 @@ void QgisMobileapp::initDeclarative()
   rootContext()->setContextProperty( "CrsFactory", QVariant::fromValue<QgsCoordinateReferenceSystem>( mCrsFactory ) );
   rootContext()->setContextProperty( "UnitTypes", QVariant::fromValue<QgsUnitTypes>( mUnitTypes ) );
   rootContext()->setContextProperty( "LocatorModelNoGroup", QgsLocatorModel::NoGroup );
+// Check QGIS Version
+#if VERSION_INT >= 30600
+  rootContext()->setContextProperty( "qfieldAuthRequestHandler", mAuthRequestHandler );
+#endif
 
   addImageProvider( QLatin1String( "legend" ), mLegendImageProvider );
 }
@@ -246,7 +272,8 @@ void QgisMobileapp::onReadProject( const QDomDocument &doc )
   Q_UNUSED( doc );
   QMap<QgsVectorLayer *, QgsFeatureRequest> requests;
   QSettings().setValue( "/qgis/project/lastProjectFile", mProject->fileName() );
-  Q_FOREACH ( QgsMapLayer *layer, mProject->mapLayers() )
+  const QList<QgsMapLayer *> mapLayers { mProject->mapLayers().values() };
+  for ( QgsMapLayer *layer : mapLayers )
   {
     QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layer );
     if ( vl )
@@ -297,6 +324,15 @@ void QgisMobileapp::loadLastProject()
 
 void QgisMobileapp::loadProjectFile( const QString &path )
 {
+// Check QGIS Version
+#if VERSION_INT >= 30600
+  mAuthRequestHandler->clearStoredRealms();
+#endif
+  reloadProjectFile( path );
+}
+
+void QgisMobileapp::reloadProjectFile( const QString &path )
+{
   mProject->removeAllMapLayers();
   emit loadProjectStarted( path );
   mProject->read( path );
@@ -315,7 +351,12 @@ void QgisMobileapp::print( int layoutIndex )
     return;
 
   QPrinter printer;
-  printer.setOutputFileName( mProject->homePath() + '/' + layoutToPrint->name() + QStringLiteral( ".pdf" ) );
+  QString documentsLocation = QStringLiteral( "%1/QField" ).arg( QStandardPaths::writableLocation( QStandardPaths::DocumentsLocation ) );
+  QDir documentsDir( documentsLocation );
+  if ( !documentsDir.exists() )
+    documentsDir.mkpath( "." );
+
+  printer.setOutputFileName( documentsLocation  + '/' + layoutToPrint->name() + QStringLiteral( ".pdf" ) );
 
   QgsLayoutExporter::PrintExportSettings printSettings;
   printSettings.rasterizeWholeImage = layoutToPrint->customProperty( QStringLiteral( "rasterize" ), false ).toBool();

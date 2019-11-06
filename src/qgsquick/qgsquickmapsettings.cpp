@@ -187,7 +187,9 @@ void MapSettings::setMapTheme( QgsProject *project, const QString &mapThemeName 
 
   QgsMapThemeCollection::MapThemeRecord mapTheme = project->mapThemeCollection()->mapThemeState( mapThemeName );
 
-  Q_FOREACH ( const QgsMapThemeCollection::MapThemeLayerRecord &record, mapTheme.layerRecords() )
+  const QList<QgsMapThemeCollection::MapThemeLayerRecord> layerRecords { mapTheme.layerRecords() };
+
+  for ( const QgsMapThemeCollection::MapThemeLayerRecord &record : layerRecords )
   {
     record.layer()->styleManager()->setCurrentStyle( mapTheme.perLayerCurrentStyle().value( layerId ) );
 
@@ -202,6 +204,14 @@ emit layersChanged();
 
 void QgsQuickMapSettings::onReadProject( const QDomDocument &doc )
 {
+  if ( mProject )
+  {
+    int red = mProject->readNumEntry( QStringLiteral( "Gui" ), QStringLiteral( "/CanvasColorRedPart" ), 255 );
+    int green = mProject->readNumEntry( QStringLiteral( "Gui" ), QStringLiteral( "/CanvasColorGreenPart" ), 255 );
+    int blue = mProject->readNumEntry( QStringLiteral( "Gui" ), QStringLiteral( "/CanvasColorBluePart" ), 255 );
+    mMapSettings.setBackgroundColor( QColor( red, green, blue ) );
+  }
+
   QDomNodeList nodes = doc.elementsByTagName( "mapcanvas" );
   if ( nodes.count() )
   {
@@ -231,4 +241,18 @@ void QgsQuickMapSettings::setRotation( double rotation )
 {
   if ( !qgsDoubleNear( rotation, 0 ) )
     QgsMessageLog::logMessage( tr( "Map Canvas rotation is not supported. Resetting from %1 to 0." ).arg( rotation ) );
+}
+
+QColor QgsQuickMapSettings::backgroundColor() const
+{
+  return mMapSettings.backgroundColor();
+}
+
+void QgsQuickMapSettings::setBackgroundColor( const QColor &color )
+{
+  if ( mMapSettings.backgroundColor() == color )
+    return;
+
+  mMapSettings.setBackgroundColor( color );
+  emit backgroundColorChanged();
 }

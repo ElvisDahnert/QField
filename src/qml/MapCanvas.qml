@@ -42,6 +42,7 @@ Item {
   function freeze(id) {
     mapCanvasWrapper.__freezecount[id] = true
     mapCanvasWrapper.freeze = true
+    console.log(mapSettings.backgroundColor)
   }
 
   function unfreeze(id) {
@@ -87,6 +88,7 @@ Item {
       anchors.fill : parent
 
       onDoubleClicked: {
+        clickedTimer.stop()
         var center = Qt.point( mouse.x, mouse.y )
         mapCanvasWrapper.zoom( center, 0.8 )
         // mapCanvasWrapper.pan( pinch.center, pinch.previousCenter )
@@ -103,7 +105,12 @@ Item {
           var distance = Math.abs( mouse.x - __initialPosition.x ) + Math.abs( mouse.y - __initialPosition.y )
 
           if ( distance < 5 * dp)
-            mapArea.clicked( mouse )
+          {
+            if (!clickedTimer.running) {
+              props.mouse = mouse
+              clickedTimer.restart()
+            }
+          }
         }
       }
 
@@ -132,11 +139,22 @@ Item {
       }
 
       Timer {
+        id: clickedTimer
+        interval: 250
+        onTriggered: mapArea.clicked( props.mouse )
+      }
+
+      Timer {
         id: unfreezePanTimer
         interval: 500;
         running: false;
         repeat: false
         onTriggered: unfreeze('pan')
+      }
+
+      QtObject {
+        id: props
+        property var mouse
       }
     }
   }

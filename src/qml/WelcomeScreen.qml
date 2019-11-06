@@ -1,6 +1,6 @@
 import QtQuick 2.11
 import QtQuick.Controls 1.4
-import "js/style.js" as Style
+import Theme 1.0
 import "."
 
 Item {
@@ -29,7 +29,7 @@ Item {
 
           Text {
             width: parent.width
-            text: qsTr( "To get started you first need a QGIS project."
+            text: qsTr( "To get started you can use a demo project or your own QGIS project."
                 + " It is very easy to create one on your desktop PC and then transfer it"
                 + " to this device." )
             wrapMode: Text.WordWrap
@@ -38,19 +38,19 @@ Item {
 
           Text {
             width: parent.width
-            text: qsTr( "Once you have a project on this device, use the button below to"
-                + " locate it on the filesystem, open it and start working." )
+            text: qsTr( "Once you have a project on this device, or to use a demo project,"
+                + " use the button below to locate it, open it and start working." )
             wrapMode: Text.WordWrap
             font.pointSize: 16
             bottomPadding: 20
           }
 
           Button {
-            iconSource: Style.getThemeIcon( "ic_map_green_48dp" )
+            iconSource: Theme.getThemeIcon( "ic_map_green_48dp" )
             width: 48*dp
             height: 48*dp
             bgcolor: "white"
-            borderColor: "#80CC28"
+            borderColor: Theme.mainColor
             onClicked: {
               showOpenProjectDialog()
               settings.setValue( "/QField/FirstRunFlag", false )

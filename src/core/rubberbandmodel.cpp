@@ -14,6 +14,7 @@
  *                                                                         *
  ***************************************************************************/
 #include "rubberbandmodel.h"
+#include "snappingutils.h"
 #include <qgsvectorlayer.h>
 #include <qgsproject.h>
 
@@ -44,7 +45,7 @@ QVector<QgsPoint> RubberbandModel::vertices() const
 QVector<QgsPoint> RubberbandModel::flatVertices( bool skipCurrentPoint ) const
 {
   QVector<QgsPoint> points;
-  Q_FOREACH ( const QgsPoint &pt, mPointList )
+  for ( const QgsPoint &pt : mPointList )
   {
     points << QgsPoint( pt );
   }
@@ -60,11 +61,15 @@ QgsPointSequence RubberbandModel::pointSequence( const QgsCoordinateReferenceSys
 
   QgsCoordinateTransform ct( mCrs, crs, QgsProject::instance()->transformContext() );
 
-  Q_FOREACH ( const QgsPoint &pt, mPointList )
+  for ( const QgsPoint &pt : mPointList )
   {
-    QgsPoint p2( ct.transform( pt.x(), pt.y() ) );
-    if ( QgsWkbTypes::hasZ( wkbType ) )
-      p2.setZ( pt.z() );
+    //crs transformation of XY
+    QgsPointXY p1 = ct.transform( pt.x(), pt.y() );
+
+    //get point containing ZM if existing
+    QgsPoint p2 = SnappingUtils::newPoint( pt, wkbType );
+    p2.setX( p1.x() );
+    p2.setY( p1.y() );
     sequence.append( p2 );
   }
 
@@ -77,7 +82,7 @@ QVector<QgsPointXY> RubberbandModel::flatPointSequence( const QgsCoordinateRefer
 
   QgsCoordinateTransform ct( mCrs, crs, QgsProject::instance()->transformContext() );
 
-  Q_FOREACH ( const QgsPoint &pt, mPointList )
+  for ( const QgsPoint &pt : mPointList )
   {
     sequence.append( ct.transform( pt.x(), pt.y() ) );
   }
@@ -240,7 +245,6 @@ void RubberbandModel::setVectorLayer( QgsVectorLayer *layer )
 
   emit vectorLayerChanged();
 }
-
 
 bool RubberbandModel::frozen() const
 {

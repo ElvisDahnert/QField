@@ -25,6 +25,7 @@ HEADERS += \
     featurelistmodelselection.h \
     featuremodel.h \
     qgismobileapp.h \
+    qgsgpkgflusher.h \
     qgssggeometry.h \
     sgrubberband.h \
     settings.h \
@@ -58,7 +59,10 @@ HEADERS += \
     locatormodelsuperbridge.h \
     linepolygonhighlight.h \
     qgsgeometrywrapper.h \
-    valuemapmodel.h
+    valuemapmodel.h \
+    referencingfeaturelistmodel.h \
+    featurechecklistmodel.h \
+    qfieldappauthrequesthandler.h
 
 SOURCES += \
     appinterface.cpp \
@@ -67,6 +71,7 @@ SOURCES += \
     featurelistmodelselection.cpp \
     featuremodel.cpp \
     qgismobileapp.cpp \
+    qgsgpkgflusher.cpp \
     qgssggeometry.cpp \
     sgrubberband.cpp \
     settings.cpp \
@@ -100,7 +105,10 @@ SOURCES += \
     locatormodelsuperbridge.cpp \
     linepolygonhighlight.cpp \
     qgsgeometrywrapper.cpp \
-    valuemapmodel.cpp
+    valuemapmodel.cpp \
+    referencingfeaturelistmodel.cpp \
+    featurechecklistmodel.cpp \
+    qfieldappauthrequesthandler.cpp
 
 INCLUDEPATH += ../../3rdparty/tessellate \
                ../qgsquick \

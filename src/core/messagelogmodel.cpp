@@ -31,6 +31,7 @@ QHash<int, QByteArray> MessageLogModel::roleNames() const
   roles[MessageRole]  = "Message";
   roles[MessageTagRole] = "MessageTag";
   roles[MessageLevelRole] = "MessageLevel";
+  roles[MessageDateTimeRole] = "MessageDateTime";
 
   return roles;
 }
@@ -52,12 +53,35 @@ QVariant MessageLogModel::data( const QModelIndex &index, int role ) const
     return mMessages.at( index.row() ).tag;
   else if ( role == MessageLevelRole )
     return mMessages.at( index.row() ).level;
+  else if ( role == MessageDateTimeRole )
+    return mMessages.at( index.row() ).datetime;
 
   return QVariant();
 }
 
+void MessageLogModel::suppressTags( const QList <QString> &tags )
+{
+  for ( const QString &tag : tags )
+  {
+    if ( !mSuppressedTags.contains( tag ) )
+      mSuppressedTags.append( tag );
+  }
+}
+
+void MessageLogModel::unsuppressTags( const QList <QString> &tags )
+{
+  for ( const QString &tag : tags )
+  {
+    if ( mSuppressedTags.contains( tag ) )
+      mSuppressedTags.removeAll( tag );
+  }
+}
+
 void MessageLogModel::onMessageReceived( const QString &message, const QString &tag, Qgis::MessageLevel level )
 {
+  if ( mSuppressedTags.contains( tag ) )
+    return;
+
   beginInsertRows( QModelIndex(), 0, 0 );
   mMessages.prepend( LogMessage( tag, message, level ) );
   qDebug() << "Nes message " << tag << " : " << message;
